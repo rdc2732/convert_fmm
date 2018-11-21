@@ -15,40 +15,47 @@ csvfile = 'FMM.txt'     # Using csv reader for tab separated file
 ###### Set of db query text
 db_drop_tables =  [ \
     "DROP TABLE IF EXISTS Keywords", \
+    "DROP TABLE IF EXISTS Ancestors", \
     "DROP TABLE IF EXISTS Records", \
     "DROP TABLE IF EXISTS Dependencies" \
     ]
 
 db_create_tables = [ \
     "CREATE TABLE Keywords (" \
-        "id INTEGER PRIMARY KEY AUTOINCREMENT," \
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
         "level INTEGER, " \
-        "parent_id INTEGER," \
+        "parent_id INTEGER, " \
         "keyword TEXT," \
-        "keyword_name TEXT," \
+        "keyword_name TEXT, " \
         "keyword_type TEXT CHECK( keyword_type IN ('MAN','OPT','ALT','OR')), " \
-    "UNIQUE (keyword)" \
-        "FOREIGN KEY(parent_id) REFERENCES Keywords(id)" \
+    "UNIQUE (keyword) " \
+        "FOREIGN KEY(parent_id) REFERENCES Keywords(id) " \
+    ");", \
+    "CREATE TABLE Ancestors (" \
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
+        "ancestor_id INTEGER, " \
+        "ancestor_name TEXT, " \
+        "FOREIGN KEY(ancestor_id) REFERENCES Keywords(id) " \
     ");", \
     "CREATE TABLE Records (" \
-        "id INTEGER PRIMARY KEY AUTOINCREMENT," \
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
         "processed BOOLEAN, " \
-        "tab TEXT," \
-        "function TEXT," \
-        "keyword_name TEXT," \
-        "keyword TEXT," \
-        "dependencies TEXT," \
-        "rule_type TEXT," \
-        "min INTEGER," \
-        "max INTEGER," \
+        "tab TEXT, " \
+        "function TEXT, " \
+        "keyword_name TEXT, " \
+        "keyword TEXT, " \
+        "dependencies TEXT, " \
+        "rule_type TEXT, " \
+        "min INTEGER, " \
+        "max INTEGER, " \
         "notes TEXT" \
     ");", \
     "CREATE TABLE Dependencies (" \
-        "id INTEGER PRIMARY KEY AUTOINCREMENT," \
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
         "processed BOOLEAN, " \
         "keyword TEXT, " \
         "feature_id INTEGER, " \
-        "FOREIGN KEY(feature_id) REFERENCES Records(id)" \
+        "FOREIGN KEY(feature_id) REFERENCES Records(id) " \
     ");" \
     ]
 
@@ -56,7 +63,7 @@ db_insert_record = \
     "INSERT OR IGNORE INTO Records " \
     "(tab, function, keyword_name, keyword, dependencies, " \
     "rule_type, min, max, notes) " \
-    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'no text')"
 
 db_insert_dependency = \
     "INSERT INTO Dependencies " \
