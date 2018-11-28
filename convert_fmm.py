@@ -13,29 +13,33 @@ sqldbfile = 'FMM.db'
 csvfile = 'FMM.txt'     # Using csv reader for tab separated file
 
 ###### Set of db query text
-db_drop_tables =  [ \
-    "DROP TABLE IF EXISTS Keywords", \
-    "DROP TABLE IF EXISTS Ancestors", \
-    "DROP TABLE IF EXISTS Records", \
-    "DROP TABLE IF EXISTS Dependencies" \
-    ]
+def drop_tables():
+    sqllist = [ \
+        "DROP TABLE IF EXISTS Keywords", \
+        "DROP TABLE IF EXISTS Requires", \
+        "DROP TABLE IF EXISTS Records", \
+        "DROP TABLE IF EXISTS Dependencies" \
+        ]
+    for query in sqllist:
+        cur.execute(query)
 
-db_create_tables = [ \
+def create_tables():
+    sqllist =  [ \
     "CREATE TABLE Keywords (" \
         "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
         "level INTEGER, " \
         "parent_id INTEGER, " \
+        "root_id INTEGER, " \
         "keyword TEXT," \
         "keyword_name TEXT, " \
         "keyword_type TEXT CHECK( keyword_type IN ('MAN','OPT','ALT','OR')), " \
     "UNIQUE (keyword) " \
         "FOREIGN KEY(parent_id) REFERENCES Keywords(id) " \
     ");", \
-    "CREATE TABLE Ancestors (" \
+    "CREATE TABLE Requires (" \
         "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
-        "ancestor_id INTEGER, " \
-        "ancestor_name TEXT, " \
-        "FOREIGN KEY(ancestor_id) REFERENCES Keywords(id) " \
+        "requires_id INTEGER, " \
+        "FOREIGN KEY(requires_id) REFERENCES Keywords(id) " \
     ");", \
     "CREATE TABLE Records (" \
         "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
@@ -58,38 +62,91 @@ db_create_tables = [ \
         "FOREIGN KEY(feature_id) REFERENCES Records(id) " \
     ");" \
     ]
+    for query in sqllist:
+        cur.execute(query)
 
-db_insert_record = \
-    "INSERT OR IGNORE INTO Records " \
-    "(tab, function, keyword_name, keyword, dependencies, " \
-    "rule_type, min, max, notes) " \
-    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'no text')"
+############ Records and Dependencies
+# Create
+def addRecord(record_data):
+    sql = "INSERT OR IGNORE INTO Records " \
+        "(tab, function, keyword_name, keyword, dependencies, " \
+        "rule_type, min, max, notes) " \
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'no text');"
+    cur.execute(sql, (record_data))
+    return(cur.lastrowid)
 
-db_insert_dependency = \
-    "INSERT INTO Dependencies " \
-    "(processed, keyword, feature_id) " \
-    "VALUES (?, ?, ?)"
+# Read
+def getTabs():
+    sql = "SELECT DISTINCT tab FROM records ORDER BY tab;"
+    cur.execute(sql)
+    return(cur.fetchall())
 
-db_select_data = \
-    "SELECT id FROM Keywords WHERE keyword = ?"
+def getFunctions(tab):
+    sql = "SELECT DISTINCT function FROM records " \
+        "WHERE tab = ? ORDER BY function;"
+    cur.execute(sql, (tab,))
+    return(cur.fetchall())
 
-db_select_record = \
-    "SELECT id FROM Records WHERE keyword = ?"
 
-db_select_distinct_tabs = \
-    "SELECT DISTINCT tab FROM records ORDER BY tab"
 
-db_select_distinct_functions = \
-    "SELECT DISTINCT function " \
-    "FROM records " \
-    "WHERE tab = ?" \
-    "ORDER BY function"
+# Update
+
+
+
+############ Keywords and Requires
+# Create
+def addKeyword(level, parent_id, root_id, keyword, keyword_name, keyword_type):
+    sql = "INSERT OR IGNORE INTO Keywords " \
+        "(level, parent_id, root_id, keyword, keyword_name, keyword_type) " \
+        "VALUES (?, ?, ?, ?, ?, ?);"
+    cur.execute(sql, (level, parent_id, root_id, keyword, keyword_name, keyword_type))
+    return(cur.lastrowid)
+
+def addDependency(keyword, feature_id):
+    sql = "INSERT INTO Dependencies " \
+        "(processed, keyword, feature_id) " \
+        "VALUES (?, ?, ?);"
+    cur.execute(sql, (False, keyword, feature_id))
+
+# Read
+def getKeywordID(keyWord):
+    sql = "SELECT id FROM Keywords WHERE keyword = ?;"
+    cur.execute(sql, (keyWord,))
+    return(cur.fetchone())[0]
+
+def getKeywordRootID(keyWord):
+    sql = "SELECT root_id FROM Keywords WHERE keyword = ?;"
+    cur.execute(sql, (keyWord,))
+    return(cur.fetchone())[0]
+
+def get_all_records():
+    # Return list of records
+    sql = "SELECT * FROM records;"
+    cur.execute(sql)
+    return(cur.fetchall())
+
+# Update
+def updateRootID(root_id, keyword_id):
+    # Update rootID of entry in keyword
+    sql = "UPDATE Keywords SET root_id = ? " \
+        "WHERE id = ?;"
+    cur.execute(sql, (root_id, keyword_id))
+
+
+
+
+
+
+
+
+
+
 
 db_select_keywords = \
     "SELECT keyword " \
     "FROM records " \
     "WHERE tab = ? and function = ?" \
-    "ORDER BY keyword"
+    "ORDER BY keyword;"
 
 db_select_OR_keywords_I = \
     "SELECT count(keyword) as count, tab, function, keyword " \
@@ -98,10 +155,17 @@ db_select_OR_keywords_I = \
     "HAVING count(tab) > 1 " \
     "ORDER BY tab, function, keyword;"
 
-db_insert_feature = \
-    "INSERT OR IGNORE INTO Keywords " \
-    "(level, parent_id, keyword, keyword_name, keyword_type) " \
-    "VALUES (?, ?, ?, ?, ?)"
+
+db_select_keyword_root = \
+    "SELECT root_id " \
+    "FROM keywords" \
+    "WHERE keyword = ?;"
+
+
+
+
+
+
 
 
 # db_select_OR_keywords_II
@@ -110,24 +174,6 @@ db_insert_feature = \
 #
 
 ##### Function definitions
-
-# Store a record from the FMM
-def addRecord(record_data):
-    cur.execute(db_insert_record, (record_data))
-    return(cur.lastrowid)
-
-
-def addDependency(keyword, feature_id):
-    cur.execute(db_insert_dependency, (False, keyword, feature_id))
-
-
-# Add new keyword to table if not exists.  Return keyword ID
-def addKeyword(level, parent_id, keyWord, keywordName, keywordType):
-    cur.execute(db_insert_feature, (level, parent_id, keyWord, keywordName, keywordType))
-    cur.execute(db_select_data, (keyWord,))
-    keyWordID = cur.fetchone()
-    return(keyWordID)
-
 # lower case all words, split, propercase all but first word, join
 def camelCase(input_text):
     output_text = ''
@@ -140,7 +186,6 @@ def camelCase(input_text):
         output_text = output_text + new_word
     return(output_text)
 
-
 def removeSpecialChars(input_text):
     specials = "/"
     output_text = ''
@@ -149,55 +194,79 @@ def removeSpecialChars(input_text):
             output_text = output_text + char
     return(output_text)
 
+def read_fmm(file):
+    # CSV records; rec[0] = FM Keyword; rec[1] = list of FM Dependencies
+    with open(file) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter='\t')
+        line_count = 0
+        for row in csv_reader:
+            if line_count > 0:
+                feature_id = addRecord(row)
+                dependencies = row[4].split(';')  # semi-colon separated list of dependencies in row[4]
+                for dependency in dependencies:
+                    addDependency(dependency, feature_id)
+            line_count += 1
+        print(f'Processed {line_count} lines.')
+        con.commit()
 
 
-##### main program
+
+
+
+##### main program #####
 
 # Set up sqlite database
 con = sqlite3.connect(sqldbfile)
 cur = con.cursor()
-for query in db_drop_tables:
-    cur.execute(query)
-for query in db_create_tables:
-    cur.execute(query)
+drop_tables()
+create_tables()
+
+# Load database with records from FMM.txt
+read_fmm(csvfile)
 
 
-# CSV records; rec[0] = FM Keyword; rec[1] = list of FM Dependencies
-with open(csvfile) as csv_file:
-    csv_reader = csv.reader(csv_file, delimiter='\t')
-    line_count = 0
-    for row in csv_reader:
-        if line_count > 0:
-            feature_id = addRecord(row)
-            dependencies = row[4].split(';') # semi-colon separated list of dependencies in row[4]
-            for dependency in dependencies:
-                addDependency(dependency, feature_id)
-        line_count += 1
-    print(f'Processed {line_count} lines.')
-    con.commit()
+
+
 
 # Get list of all tabs and create features
-cur.execute(db_select_distinct_tabs)
-tab_rows = cur.fetchall()
+tab_rows = getTabs()
 for tab_row in tab_rows:
-    tabName = tab_row[0]
-    tabKeyword = camelCase(removeSpecialChars(tabName))
-    parentID = None
     featureLevel = 0
+    parentID = None
+    rootID = None
+    keywordName = tab_row[0]
+    keyword = camelCase(removeSpecialChars(keywordName))
     keyWordType = 'MAN'
-    tab_feature_id = addKeyword(featureLevel, parentID, tabKeyword, tabName, keyWordType)[0]
+    tab_feature_id = addKeyword(featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
+    updateRootID(tab_feature_id, tab_feature_id)
 
-    # Get list of all functions and create features linked to tabs
-    cur.execute(db_select_distinct_functions, (tabName,))
-    function_rows = cur.fetchall()
+    # Get list of all functions and create features linked to tabs (keywordName of tab)
+    function_rows = getFunctions(keywordName)
     for function_row in function_rows:
-        functionName = function_row[0]
-        functionKeyword = camelCase(removeSpecialChars(functionName))
-        parentID = tab_feature_id
         featureLevel = 1
+        parentID = tab_feature_id
+        rootID = tab_feature_id
+        keywordName = function_row[0]
+        keyword = camelCase(removeSpecialChars(keywordName))
         keyWordType = 'MAN'
+        function_feature_id = addKeyword(featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
 
-        function_feature_id = addKeyword(featureLevel, parentID, functionKeyword, functionName, keyWordType)[0]
+# Loop through all records; add keywords.  Initially set parentID = RootID.  Later will update if needed.
+record_rows = get_all_records()
+for record_row in record_rows:
+    featureLevel = 2
+    tab = record_row[2]
+    tabKeyword = camelCase(removeSpecialChars(tab))
+    parentID = getKeywordID(tabKeyword)
+    rootID = getKeywordRootID(tabKeyword)
+    keyword = record_row[5]
+    keywordName = record_row[4]
+    keyWordType = 'MAN'
+    keyword_featue_id = addKeyword(featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
+
+# Loop again through all records; If a dependency has same root, make the dependency
+#   be the paraent of the current record, otherwise make it a requires.
+
 
 # Process all Type I ORs
 # Get list of all Type I
