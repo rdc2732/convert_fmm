@@ -83,6 +83,12 @@ def addDependency(dependency, record_id):
     cur.execute(sql, (False, dependency, record_id))
 
 # Read
+def get_all_records():
+    # Return list of records
+    sql = "SELECT * FROM records;"
+    cur.execute(sql)
+    return(cur.fetchall())
+
 def getTabs():
     sql = "SELECT DISTINCT tab FROM records ORDER BY tab;"
     cur.execute(sql)
@@ -92,6 +98,17 @@ def getFunctions(tab):
     sql = "SELECT function FROM records " \
         "WHERE tab = ? ORDER BY function;"
     cur.execute(sql, (tab,))
+    return(cur.fetchall())
+
+def getFeatures(function):
+    sql = "SELECT keyword FROM records " \
+        "WHERE function = ? ORDER BY keyword;"
+    cur.execute(sql, (function,))
+    return(cur.fetchall())
+
+def getDeps():
+    sql = "SELECT DISTINCT dependency FROM Dependencies ORDER BY dependency;"
+    cur.execute(sql)
     return(cur.fetchall())
 
 def getDependents(keyword):
@@ -127,6 +144,12 @@ def addRequires(requires_id, keywords_id):
     cur.execute(sql, (requires_id, keywords_id))
 
 # Read
+def getKeywords():
+    sql = "SELECT DISTINCT keyword FROM Keywords;"
+    cur.execute(sql)
+    list_of_tuples = cur.fetchall()
+    return([x[0] for x in list_of_tuples])
+
 def getKeywordID(keyWord):
     sql = "SELECT id FROM Keywords WHERE keyword = ?;"
     cur.execute(sql, (keyWord,))
@@ -141,7 +164,6 @@ def getKeywordRootID(keyWord):
     else:
         return(result[0])
 
-
 def getKeywordRootIDfromID(keyWordID):
     sql = "SELECT root_id FROM Keywords WHERE id = ?;"
     cur.execute(sql, (keyWordID,))
@@ -151,11 +173,15 @@ def getKeywordRootIDfromID(keyWordID):
     else:
         return(result[0])
 
-def get_all_records():
-    # Return list of records
-    sql = "SELECT * FROM records;"
-    cur.execute(sql)
-    return(cur.fetchall())
+def getKeywordDatafromID(keyWordID):
+    sql = "SELECT * FROM Keywords WHERE id = ?;"
+    cur.execute(sql, (keyWordID,))
+    result = cur.fetchone()
+    if result == None:
+        return(None)
+    else:
+        return(result)
+
 
 # Update
 def updateRootID(root_id, keyword_id):
@@ -165,9 +191,10 @@ def updateRootID(root_id, keyword_id):
     cur.execute(sql, (root_id, keyword_id))
 
 def updateKeywordParent(keywordID,dependencyID):
-    sql = "UPDATE Keywords SET parent_id = ? " \
+    parentLevel = getKeywordDatafromID(dependencyID)[1]
+    sql = "UPDATE Keywords SET parent_id = ?, level = ? " \
         "WHERE id = ?;"
-    cur.execute(sql, (dependencyID, keywordID))
+    cur.execute(sql, (dependencyID, parentLevel + 1, keywordID))
 
 
 
@@ -189,7 +216,6 @@ db_select_OR_keywords_I = \
     "GROUP BY tab, function, keyword " \
     "HAVING count(tab) > 1 " \
     "ORDER BY tab, function, keyword;"
-
 
 db_select_keyword_root = \
     "SELECT root_id " \
@@ -267,8 +293,8 @@ read_fmm(csvfile)
 tab_rows = getTabs()
 for tab_row in tab_rows:
     featureLevel = 0
-    parentID = None
-    rootID = None
+    parentID = 0
+    rootID = 0
     keywordName = tab_row[0]
     keyword = camelCase(removeSpecialChars(keywordName))
     keyWordType = 'MAN'
@@ -286,42 +312,67 @@ for tab_row in tab_rows:
         keyWordType = 'MAN'
         function_feature_id = addKeyword(featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
 
-# Loop through all records; add keywords.  Initially set parentID = RootID.  Later will update if needed.
-record_rows = get_all_records()
-for record_row in record_rows:
-    featureLevel = 2
-    tab = record_row[2]
-    tabKeyword = camelCase(removeSpecialChars(tab))
-    parentID = getKeywordID(tabKeyword)
-    rootID = getKeywordRootID(tabKeyword)
-    keyword = record_row[5]
-    keywordName = record_row[4]
-    keyWordType = 'MAN'
-    keyword_featue_id = addKeyword(featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
+        # Get list of all keywords and create features linked to functions (keywordName of function)
+        feature_rows = getFeatures(keywordName)
+        for feature_row in feature_rows:
+            featureLevel = 2
+            parentID = function_feature_id
+            rootID = tab_feature_id
+            keywordName = feature_row[0]
+            keyword = camelCase(removeSpecialChars(keywordName))
+            keyWordType = 'MAN'
+            feature_feature_id = addKeyword(featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
 
-# Loop through all records and dependencies. If a dependency has same root, make the dependency
-#   be the paraent of the current record, otherwise make it a requires.
-keywordDependentPairs = getKeywordDependencyPairs()  
-for KDPair in keywordDependentPairs:
-    keywordID = KDPair[0]
-    dependencyID = KDPair[1]
+dep_rows = getDeps()  # <<<===============  Pick up here.  Need to linke new keywords (dependencies) to tab
+key_rows = getKeywords()
+for dep_row in dep_rows:
+    dependency = dep_row[0]
+    if dependency not in key_rows:
+        featureLevel = 0
+        parentID = 0
+        rootID = 0
+        keywordName = dependency
+        keyword = camelCase(removeSpecialChars(keywordName))
+        keyWordType = 'MAN'
+        dep_feature_id = addKeyword(featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
+        updateRootID(dep_feature_id, dep_feature_id)
 
-    if getKeywordRootIDfromID(keywordID) == getKeywordRootIDfromID(dependencyID):
-        updateKeywordParent(keywordID, dependencyID)
-    else:
-        addRequires(dependencyID, keywordID)
-    # keyword = record_row[5]
-    # print('\n', keyword)
-    # dependent_rows = getDependents(keyword)
-    # for dependent_row in dependent_rows:
-    #     dependent = dependent_row[2]
-    #     print('\t', dependent)
-        # dependentRootID = getKeywordID(dependent)
-        # parentID = dependent_row[3]
-        # print(dependent, dependentRootID)
-        #
-        # parentRootID = getKeywordRootIDfromID(parentID)
-        # print(parentRootID)
+# # Loop through all records; add keywords.  Initially set parentID = RootID.  Later will update if needed.
+# record_rows = get_all_records()
+# for record_row in record_rows:
+#     featureLevel = 2
+#     tab = record_row[2]
+#     tabKeyword = camelCase(removeSpecialChars(tab))
+#     parentID = getKeywordID(tabKeyword)
+#     rootID = getKeywordRootID(tabKeyword)
+#     keyword = record_row[5]
+#     keywordName = record_row[4]
+#     keyWordType = 'MAN'
+#     keyword_featue_id = addKeyword(featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
+#
+# # Loop through all records and dependencies. If a dependency has same root, make the dependency
+# #   be the paraent of the current record, otherwise make it a requires.
+# keywordDependentPairs = getKeywordDependencyPairs()
+# for KDPair in keywordDependentPairs:
+#     keywordID = KDPair[0]
+#     dependencyID = KDPair[1]
+#
+#     if getKeywordRootIDfromID(keywordID) == getKeywordRootIDfromID(dependencyID):
+#         updateKeywordParent(keywordID, dependencyID)
+#     else:
+#         addRequires(dependencyID, keywordID)
+#     # keyword = record_row[5]
+#     # print('\n', keyword)
+#     # dependent_rows = getDependents(keyword)
+#     # for dependent_row in dependent_rows:
+#     #     dependent = dependent_row[2]
+#     #     print('\t', dependent)
+#         # dependentRootID = getKeywordID(dependent)
+#         # parentID = dependent_row[3]
+#         # print(dependent, dependentRootID)
+#         #
+#         # parentRootID = getKeywordRootIDfromID(parentID)
+#         # print(parentRootID)
 
 
 # Process all Type I ORs
