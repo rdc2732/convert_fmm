@@ -39,7 +39,8 @@ def create_tables():
     "CREATE TABLE Requires (" \
         "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
         "requires_id INTEGER, " \
-        "FOREIGN KEY(requires_id) REFERENCES Keywords(id) " \
+        "keywords_id INTEGER, " \
+        "FOREIGN KEY(keywords_id) REFERENCES Keywords(id) " \
     ");", \
     "CREATE TABLE Records (" \
         "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
@@ -57,9 +58,9 @@ def create_tables():
     "CREATE TABLE Dependencies (" \
         "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
         "processed BOOLEAN, " \
-        "keyword TEXT, " \
-        "feature_id INTEGER, " \
-        "FOREIGN KEY(feature_id) REFERENCES Records(id) " \
+        "dependency TEXT, " \
+        "record_id INTEGER, " \
+        "FOREIGN KEY(record_id) REFERENCES Records(id) " \
     ");" \
     ]
     for query in sqllist:
@@ -75,6 +76,12 @@ def addRecord(record_data):
     cur.execute(sql, (record_data))
     return(cur.lastrowid)
 
+def addDependency(dependency, record_id):
+    sql = "INSERT INTO Dependencies " \
+        "(processed, dependency, record_id) " \
+        "VALUES (?, ?, ?);"
+    cur.execute(sql, (False, dependency, record_id))
+
 # Read
 def getTabs():
     sql = "SELECT DISTINCT tab FROM records ORDER BY tab;"
@@ -82,12 +89,23 @@ def getTabs():
     return(cur.fetchall())
 
 def getFunctions(tab):
-    sql = "SELECT DISTINCT function FROM records " \
+    sql = "SELECT function FROM records " \
         "WHERE tab = ? ORDER BY function;"
     cur.execute(sql, (tab,))
     return(cur.fetchall())
 
+def getDependents(keyword):
+    sql = "SELECT * FROM dependencies " \
+        "WHERE keyword = ? ORDER BY keyword;"
+    cur.execute(sql, (keyword,))
+    return(cur.fetchall())
 
+def getKeywordDependencyPairs():
+    sql = "select keywords.id as keyid, dependencies.id as depid " \
+        "from keywords, dependencies " \
+        "where dependencies.record_id = keywords.id; "
+    cur.execute(sql)
+    return(cur.fetchall())
 
 # Update
 
@@ -102,22 +120,36 @@ def addKeyword(level, parent_id, root_id, keyword, keyword_name, keyword_type):
     cur.execute(sql, (level, parent_id, root_id, keyword, keyword_name, keyword_type))
     return(cur.lastrowid)
 
-def addDependency(keyword, feature_id):
-    sql = "INSERT INTO Dependencies " \
-        "(processed, keyword, feature_id) " \
-        "VALUES (?, ?, ?);"
-    cur.execute(sql, (False, keyword, feature_id))
+def addRequires(requires_id, keywords_id):
+    sql = "INSERT INTO Requires " \
+        "(requires_id, keywords_id) " \
+        "VALUES (?, ?);"
+    cur.execute(sql, (requires_id, keywords_id))
 
 # Read
 def getKeywordID(keyWord):
     sql = "SELECT id FROM Keywords WHERE keyword = ?;"
     cur.execute(sql, (keyWord,))
-    return(cur.fetchone())[0]
+    return(cur.fetchone()[0])
 
 def getKeywordRootID(keyWord):
     sql = "SELECT root_id FROM Keywords WHERE keyword = ?;"
     cur.execute(sql, (keyWord,))
-    return(cur.fetchone())[0]
+    result = cur.fetchone()
+    if result == None:
+        return(None)
+    else:
+        return(result[0])
+
+
+def getKeywordRootIDfromID(keyWordID):
+    sql = "SELECT root_id FROM Keywords WHERE id = ?;"
+    cur.execute(sql, (keyWordID,))
+    result = cur.fetchone()
+    if result == None:
+        return(None)
+    else:
+        return(result[0])
 
 def get_all_records():
     # Return list of records
@@ -132,7 +164,10 @@ def updateRootID(root_id, keyword_id):
         "WHERE id = ?;"
     cur.execute(sql, (root_id, keyword_id))
 
-
+def updateKeywordParent(keywordID,dependencyID):
+    sql = "UPDATE Keywords SET parent_id = ? " \
+        "WHERE id = ?;"
+    cur.execute(sql, (dependencyID, keywordID))
 
 
 
@@ -264,8 +299,29 @@ for record_row in record_rows:
     keyWordType = 'MAN'
     keyword_featue_id = addKeyword(featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
 
-# Loop again through all records; If a dependency has same root, make the dependency
+# Loop through all records and dependencies. If a dependency has same root, make the dependency
 #   be the paraent of the current record, otherwise make it a requires.
+keywordDependentPairs = getKeywordDependencyPairs()  
+for KDPair in keywordDependentPairs:
+    keywordID = KDPair[0]
+    dependencyID = KDPair[1]
+
+    if getKeywordRootIDfromID(keywordID) == getKeywordRootIDfromID(dependencyID):
+        updateKeywordParent(keywordID, dependencyID)
+    else:
+        addRequires(dependencyID, keywordID)
+    # keyword = record_row[5]
+    # print('\n', keyword)
+    # dependent_rows = getDependents(keyword)
+    # for dependent_row in dependent_rows:
+    #     dependent = dependent_row[2]
+    #     print('\t', dependent)
+        # dependentRootID = getKeywordID(dependent)
+        # parentID = dependent_row[3]
+        # print(dependent, dependentRootID)
+        #
+        # parentRootID = getKeywordRootIDfromID(parentID)
+        # print(parentRootID)
 
 
 # Process all Type I ORs
