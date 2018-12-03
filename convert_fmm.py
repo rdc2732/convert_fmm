@@ -8,21 +8,31 @@
 
 import sqlite3
 import csv
+import re
 from convert_fmm_sql import *
 
 sqldbfile = 'FMM.db'
 csvfile = 'FMM.txt'     # Using csv reader for tab separated file
 
 ##### Function definitions
-# lower case all words, split, propercase all but first word, join
+# Uncamelcase words, needed to standardize the input data that does not follow rules
+# Returns string with parts separated by '_'
+def uncamelcase(input_text):
+    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', input_text)
+    s2 = re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1)
+    return(s2)
+
+# lower case all words, split, propercase all but first word,
+# join; if only one word return with original caps
 def camelCase(input_text):
     output_text = ''
-    word_list = input_text.lower().split(' ')
+    word_list = input_text.split(' ')
+    if len(word_list) == 1:
+        word_list = uncamelcase(word_list[0]).split('_')
     for num, word in enumerate(word_list):
+        new_word = word.lower()
         if num > 0:
             new_word = word.capitalize()
-        else:
-            new_word = word
         output_text = output_text + new_word
     return(output_text)
 
@@ -34,21 +44,25 @@ def removeSpecialChars(input_text):
             output_text = output_text + char
     return(output_text)
 
+def cleanup(input_text):
+    return(camelCase(removeSpecialChars(input_text)))
+
+
 def read_fmm(file):
     # CSV records; rec[0] = FM Keyword; rec[1] = list of FM Dependencies
+    # Modify to clean up keywords if needed.
     with open(file) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter='\t')
         line_count = 0
         for row in csv_reader:
             if line_count > 0:
-                feature_id = addRecord(row)
+                feature_id = addRecord(cur, row)
                 dependencies = row[4].split(';')  # semi-colon separated list of dependencies in row[4]
                 for dependency in dependencies:
-                    addDependency(dependency, feature_id)
+                    addDependency(cur, cleanup(dependency), feature_id)
             line_count += 1
         print(f'Processed {line_count} lines.')
         con.commit()
-
 
 ##### main program #####
 
@@ -62,42 +76,39 @@ create_tables(cur)
 read_fmm(csvfile)
 
 
-
-
-
 # Get list of all tabs and create features
-tab_rows = getTabs()
+tab_rows = getTabs(cur)
 for tab_row in tab_rows:
     featureLevel = 0
     parentID = 0
     rootID = 0
     keywordName = tab_row[0]
-    keyword = camelCase(removeSpecialChars(keywordName))
+    keyword = cleanup(keywordName)
     keyWordType = 'MAN'
-    tab_feature_id = addKeyword(featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
-    updateRootID(tab_feature_id, tab_feature_id)
+    tab_feature_id = addKeyword(cur, featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
+    updateRootID(cur, tab_feature_id, tab_feature_id)
 
     # Get list of all functions and create features linked to tabs (keywordName of tab)
-    function_rows = getFunctions(keywordName)
+    function_rows = getFunctions(cur, keywordName)
     for function_row in function_rows:
         featureLevel = 1
         parentID = tab_feature_id
         rootID = tab_feature_id
         keywordName = function_row[0]
-        keyword = camelCase(removeSpecialChars(keywordName))
+        keyword = cleanup(keywordName)
         keyWordType = 'MAN'
-        function_feature_id = addKeyword(featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
+        function_feature_id = addKeyword(cur, featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
 
         # Get list of all keywords and create features linked to functions (keywordName of function)
-        feature_rows = getFeatures(keywordName)
+        feature_rows = getFeatures(cur, keywordName)
         for feature_row in feature_rows:
             featureLevel = 2
             parentID = function_feature_id
             rootID = tab_feature_id
             keywordName = feature_row[0]
-            keyword = camelCase(removeSpecialChars(keywordName))
+            keyword = cleanup(keywordName)
             keyWordType = 'MAN'
-            feature_feature_id = addKeyword(featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
+            feature_feature_id = addKeyword(cur, featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
 con.commit()
 
 # Create new "tab" for Common features
@@ -105,14 +116,14 @@ featureLevel = 0
 parentID = 0
 rootID = 0
 keywordName = "Common Features"
-keyword = camelCase(removeSpecialChars(keywordName))
+keyword = cleanup(keywordName)
 keyWordType = 'MAN'
-common_feature_id = addKeyword(featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
-updateRootID(common_feature_id, common_feature_id)
+common_feature_id = addKeyword(cur, featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
+updateRootID(cur, common_feature_id, common_feature_id)
 con.commit()
 
 # Create new "functions" for Common features
-dep_rows = getDeps()
+dep_rows = getDeps(cur)
 for dep_row in dep_rows:
     dependency = dep_row[0]
     if dependency.find("Common") == 0:
@@ -120,56 +131,70 @@ for dep_row in dep_rows:
         parentID = common_feature_id
         rootID = common_feature_id
         keywordName = dependency
-        keyword = camelCase(removeSpecialChars(keywordName))
+        keyword = cleanup(keywordName)
         keyWordType = 'MAN'
-        dep_feature_id = addKeyword(featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
+        dep_feature_id = addKeyword(cur, featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
 con.commit()
 
-# Create new "features" for any other dependencies
-key_rows = getKeywords()
+# Create new "features" for any other dependencies missed (should not be any except n/a)
+dep_rows = getDeps(cur)
+key_rows = getKeywords(cur)
 for dep_row in dep_rows:
     keywordName = dep_row[0]
-    keyword = camelCase(removeSpecialChars(keywordName))
+    keyword = cleanup(keywordName)
     if keyword not in key_rows:
         featureLevel = 0
         parentID = 0
         rootID = 0
         keyWordType = 'MAN'
-        dep_feature_id = addKeyword(featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
-        updateRootID(dep_feature_id, dep_feature_id)
+        dep_feature_id = addKeyword(cur, featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
+        updateRootID(cur, dep_feature_id, dep_feature_id)
 con.commit()
 
 
-# # Loop through all records; add keywords.  Initially set parentID = RootID.  Later will update if needed.
-# record_rows = get_all_records()
-# for record_row in record_rows:
-#     featureLevel = 2
-#     tab = record_row[2]
-#     tabKeyword = camelCase(removeSpecialChars(tab))
-#     parentID = getKeywordID(tabKeyword)
-#     rootID = getKeywordRootID(tabKeyword)
-#     keyword = record_row[5]
-#     keywordName = record_row[4]
-#     keyWordType = 'MAN'
-#     keyword_featue_id = addKeyword(featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
+## <<<<<<<<<<<<<<<<< PICKUP HERE.  Need to make sure dependencies are linked and all records are linked to
+##  Each other.
+
+
+
+# For all dependencies, if the root of the dependency is different than root of its keyword,
+#   then add the dependency to the keywords Requires list
+
+
+
 #
+# allKeywordRows = getKeywordsData(cur)
+# for keywordRow in allKeywordRows:
+#     keywordID = keywordRow[0]
+#     keyword = keywordRow[4]
+#     requiresRows = getRequiresFromKeywordID(cur, keywordID)
+#     for requiresRow in requiresRows:
+#         print(keywordID, requiresRow)
+#     # if getKeywordRootIDfromID(keywordID) == getKeywordRootIDfromID(dependencyID):
+#     #     updateKeywordParent(keywordID, dependencyID)
+#     # else:
+#     #     addRequires(dependencyID, keywordID)
+# con.commit()
 
 
-# Loop through all keywords and requires. If a require has same root, make the require
-#   be the paraent of the current keyword, ane remove from requires for that keyword.
 
-allKeywordRows = getKeywordsData()
-for keywordRow in allKeywordRows:
-    keywordID = keywordRow[0]
-    keyword = keywordRow[4]
-    requiresRows = getRequiresFromKeywordID(keywordID)
-    for requiresRow in requiresRows:
-        print(keywordID, requiresRow)
-    # if getKeywordRootIDfromID(keywordID) == getKeywordRootIDfromID(dependencyID):
-    #     updateKeywordParent(keywordID, dependencyID)
-    # else:
-    #     addRequires(dependencyID, keywordID)
-con.commit()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     # keyword = record_row[5]
     # print('\n', keyword)
@@ -193,4 +218,7 @@ con.commit()
 #     for count in range(row[0]):
 #         new_keyword = row[3] + "_" + str(count)
 #         print(row[1], row[2], row[3], new_keyword)
+
+# Loop through all keywords and requires. If a require has same root, make the require
+#   be the paraent of the current keyword, ane remove from requires for that keyword.
 

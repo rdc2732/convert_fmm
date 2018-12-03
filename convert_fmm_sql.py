@@ -56,67 +56,67 @@ def create_tables(cursor):
 
 ############ Records and Dependencies
 # Create
-def addRecord(record_data):
+def addRecord(cursor, record_data):
     sql = "INSERT OR IGNORE INTO Records " \
         "(tab, function, keyword_name, keyword, dependencies, " \
         "rule_type, min, max, notes) " \
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'no text');"
-    cur.execute(sql, (record_data))
-    return(cur.lastrowid)
+    cursor.execute(sql, (record_data))
+    return(cursor.lastrowid)
 
-def addDependency(dependency, record_id):
+def addDependency(cursor, dependency, record_id):
     sql = "INSERT INTO Dependencies " \
         "(dependency, record_id) " \
         "VALUES (?, ?);"
-    cur.execute(sql, (dependency, record_id))
+    cursor.execute(sql, (dependency, record_id))
 
 # Read
-def getRecord(keyword):
+def getRecord(cursor, keyword):
     sql = "SELECT * FROM records " \
         "WHERE keyword = ?;"
-    cur.execute(sql, (keyword,))
-    return(cur.fetchone())
+    cursor.execute(sql, (keyword,))
+    return(cursor.fetchone())
 
-def get_all_records():
+def getAllRecords(cursor):
     # Return list of records
     sql = "SELECT * FROM records;"
-    cur.execute(sql)
-    return(cur.fetchall())
+    cursor.execute(sql)
+    return(cursor.fetchall())
 
-def getTabs():
+def getTabs(cursor):
     sql = "SELECT DISTINCT tab FROM records ORDER BY tab;"
-    cur.execute(sql)
-    return(cur.fetchall())
+    cursor.execute(sql)
+    return(cursor.fetchall())
 
-def getFunctions(tab):
+def getFunctions(cursor, tab):
     sql = "SELECT function FROM records " \
         "WHERE tab = ? ORDER BY function;"
-    cur.execute(sql, (tab,))
-    return(cur.fetchall())
+    cursor.execute(sql, (tab,))
+    return(cursor.fetchall())
 
-def getFeatures(function):
+def getFeatures(cursor, function):
     sql = "SELECT keyword FROM records " \
         "WHERE function = ? ORDER BY keyword;"
-    cur.execute(sql, (function,))
-    return(cur.fetchall())
+    cursor.execute(sql, (function,))
+    return(cursor.fetchall())
 
-def getDeps():
+def getDeps(cursor):
     sql = "SELECT DISTINCT dependency FROM Dependencies ORDER BY dependency;"
-    cur.execute(sql)
-    return(cur.fetchall())
+    cursor.execute(sql)
+    return(cursor.fetchall())
 
-def getDependents(keyword):
+def getDependents(cursor, keyword):
     sql = "SELECT * FROM dependencies " \
         "WHERE keyword = ? ORDER BY keyword;"
-    cur.execute(sql, (keyword,))
-    return(cur.fetchall())
+    cursor.execute(sql, (keyword,))
+    return(cursor.fetchall())
 
 # def getKeywordDependencyPairs():
 #     sql = "select keywords.id as keyid, dependencies.id as depid " \
 #         "from keywords, dependencies " \
 #         "where dependencies.record_id = keywords.id; "
-#     cur.execute(sql)
-#     return(cur.fetchall())
+#     cursor.execute(sql)
+#     return(cursor.fetchall())
 
 # Update
 
@@ -124,84 +124,83 @@ def getDependents(keyword):
 
 ############ Keywords and Requires
 # Create
-def addKeyword(level, parent_id, root_id, keyword, keyword_name, keyword_type):
+def addKeyword(cursor, level, parent_id, root_id, keyword, keyword_name, keyword_type):
     sql = "INSERT OR IGNORE INTO Keywords " \
         "(level, parent_id, root_id, keyword, keyword_name, keyword_type) " \
         "VALUES (?, ?, ?, ?, ?, ?);"
-    cur.execute(sql, (level, parent_id, root_id, keyword, keyword_name, keyword_type))
-    return(cur.lastrowid)
+    cursor.execute(sql, (level, parent_id, root_id, keyword, keyword_name, keyword_type))
+    return(cursor.lastrowid)
 
-def addRequires(requires_id, keywords_id):
+def addRequires(cursor, requires_id, keywords_id):
     sql = "INSERT INTO Requires " \
         "(requires_id, keywords_id) " \
         "VALUES (?, ?);"
     print(sql, requires_id, keywords_id)
-    cur.execute(sql, (requires_id, keywords_id))
+    cursor.execute(sql, (requires_id, keywords_id))
 
 # Read
-def getKeywords():
+def getKeywords(cursor):
     sql = "SELECT keyword FROM Keywords;"
-    cur.execute(sql)
-    list_of_tuples = cur.fetchall()
+    cursor.execute(sql)
+    list_of_tuples = cursor.fetchall()
     return([x[0] for x in list_of_tuples])
 
-def getKeywordsData():
+def getKeywordsData(cursor):
     sql = "SELECT * FROM Keywords;"
-    cur.execute(sql)
-    return(cur.fetchall())
+    cursor.execute(sql)
+    return(cursor.fetchall())
 
-def getKeywordID(keyWord):
+def getKeywordID(cursor, keyWord):
     sql = "SELECT id FROM Keywords WHERE keyword = ?;"
-    cur.execute(sql, (keyWord,))
-    return(cur.fetchone()[0])
+    cursor.execute(sql, (keyWord,))
+    return(cursor.fetchone()[0])
 
-def getKeywordRootID(keyWord):
+def getKeywordRootID(cursor, keyWord):
     sql = "SELECT root_id FROM Keywords WHERE keyword = ?;"
-    cur.execute(sql, (keyWord,))
-    result = cur.fetchone()
+    cursor.execute(sql, (keyWord,))
+    result = cursor.fetchone()
     if result == None:
         return(None)
     else:
         return(result[0])
 
-def getKeywordRootIDfromID(keyWordID):
+def getKeywordRootIDfromID(cursor, keyWordID):
     sql = "SELECT root_id FROM Keywords WHERE id = ?;"
-    cur.execute(sql, (keyWordID,))
-    result = cur.fetchone()
+    cursor.execute(sql, (keyWordID,))
+    result = cursor.fetchone()
     if result == None:
         return(None)
     else:
         return(result[0])
 
-def getKeywordDatafromID(keyWordID):
+def getKeywordDatafromID(cursor, keyWordID):
     sql = "SELECT * FROM Keywords WHERE id = ?;"
-    cur.execute(sql, (keyWordID,))
-    result = cur.fetchone()
+    cursor.execute(sql, (keyWordID,))
+    result = cursor.fetchone()
     if result == None:
         return(None)
     else:
         return(result)
 
-def getRequiresFromKeywordID(keyWordID):
+def getRequiresFromKeywordID(cursor, keyWordID):
     sql = "SELECT * FROM Requires WHERE keywords_id = ?;"
-    print(sql, keywordID)
-    cur.execute(sql, (keyWordID,))
-    return(cur.fetchall())
-
+    print(sql, keyWordID)
+    cursor.execute(sql, (keyWordID,))
+    return(cursor.fetchall())
 
 # Update
-def updateRootID(root_id, keyword_id):
+def updateRootID(cursor, root_id, keyword_id):
     # Update rootID of entry in keyword
     sql = "UPDATE Keywords SET root_id = ? " \
         "WHERE id = ?;"
-    cur.execute(sql, (root_id, keyword_id))
+    cursor.execute(sql, (root_id, keyword_id))
 
-def updateKeywordParent(keywordID,dependencyID):
+def updateKeywordParent(cursor, keywordID,dependencyID):
     parentLevel = getKeywordDatafromID(dependencyID)[1]
     sql = "UPDATE Keywords SET parent_id = ?, level = ? " \
         "WHERE id = ?;"
     print(sql, ependencyID, parentLevel + 1, keywordID)
-    cur.execute(sql, (dependencyID, parentLevel + 1, keywordID))
+    cursor.execute(sql, (dependencyID, parentLevel + 1, keywordID))
 
 
 
