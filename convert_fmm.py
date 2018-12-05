@@ -13,6 +13,7 @@ from convert_fmm_sql import *
 
 sqldbfile = 'FMM.db'
 csvfile = 'FMM.txt'     # Using csv reader for tab separated file
+csvfileout = 'FMMout.txt' # Using csv writer for tab separated file
 
 ##### Function definitions
 # Uncamelcase words, needed to standardize the input data that does not follow rules
@@ -56,6 +57,9 @@ def read_fmm(file):
         line_count = 0
         for row in csv_reader:
             if line_count > 0:
+                row[3] = cleanup(row[3])
+                if row[3] == 'rightEngineID':
+                    print(row)
                 feature_id = addRecord(cur, row)
                 dependencies = row[4].split(';')  # semi-colon separated list of dependencies in row[4]
                 for dependency in dependencies:
@@ -63,6 +67,13 @@ def read_fmm(file):
             line_count += 1
         print(f'Processed {line_count} lines.')
         con.commit()
+
+def write_fmm(file, row_data):
+    with open(file) as csv_file:
+        csv_writer = csv.writer(csv_file, delimter='\t')
+        csv_writer.writerows(row_data)
+
+    csv_writer.close()
 
 ##### main program #####
 
@@ -80,7 +91,7 @@ read_fmm(csvfile)
 tab_rows = getTabs(cur)
 for tab_row in tab_rows:
     featureLevel = 0
-    parentID = 0
+    parentID = None
     rootID = 0
     keywordName = tab_row[0]
     keyword = cleanup(keywordName)
@@ -113,7 +124,7 @@ con.commit()
 
 # Create new "tab" for Common features
 featureLevel = 0
-parentID = 0
+parentID = None
 rootID = 0
 keywordName = "Common Features"
 keyword = cleanup(keywordName)
@@ -126,7 +137,7 @@ con.commit()
 dep_rows = getDeps(cur)
 for dep_row in dep_rows:
     dependency = dep_row[0]
-    if dependency.find("Common") == 0:
+    if dependency.find("common") == 0:
         featureLevel = 1
         parentID = common_feature_id
         rootID = common_feature_id
@@ -136,12 +147,39 @@ for dep_row in dep_rows:
         dep_feature_id = addKeyword(cur, featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
 con.commit()
 
-# Create new "features" for any other dependencies missed (should not be any except n/a)
+# Create new "tab" for Other features
+featureLevel = 0
+parentID = None
+rootID = 0
+keywordName = "Other Features"
+keyword = cleanup(keywordName)
+keyWordType = 'MAN'
+other_feature_id = addKeyword(cur, featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
+updateRootID(cur, other_feature_id, other_feature_id)
+con.commit()
+
+
+# Create new "features" for any Other dependencies missed (should not be any except n/a)
 dep_rows = getDeps(cur)
 key_rows = getKeywords(cur)
 for dep_row in dep_rows:
     keywordName = dep_row[0]
     keyword = cleanup(keywordName)
+    if keyword not in key_rows:
+        featureLevel = 0
+        parentID = other_feature_id
+        rootID = other_feature_id
+        keyWordType = 'MAN'
+        dep_feature_id = addKeyword(cur, featureLevel, parentID, rootID, keyword, keywordName, keyWordType)
+        updateRootID(cur, dep_feature_id, dep_feature_id)
+con.commit()
+
+# Create new "features" for any other keywords from records missed
+rec_rows = getAllRecords(cur)
+for rec_row in rec_rows:
+    keywordName = rec_row[5]
+    keyword = cleanup(keywordName)
+
     if keyword not in key_rows:
         featureLevel = 0
         parentID = 0
@@ -151,35 +189,41 @@ for dep_row in dep_rows:
         updateRootID(cur, dep_feature_id, dep_feature_id)
 con.commit()
 
+# For each keyword in records: if dependency has same root, set keyword parent equal to dependency,
+#    else add dependency to keywords requires
+rec_dep_rows = getAllRecordsAndDependencies(cur)
+for rec_dep_row in rec_dep_rows:
+    keywordName = rec_dep_row[5]
+    keywordID = getKeywordID(cur, keywordName)
+    keyword_root_id = getKeywordRootID(cur, keywordName)
 
-## <<<<<<<<<<<<<<<<< PICKUP HERE.  Need to make sure dependencies are linked and all records are linked to
-##  Each other.
+    dependencyName = rec_dep_row[11]
+    dependencyID = getKeywordID(cur, dependencyName)
+    dependency_root_id = getKeywordRootID(cur, dependencyName)
+
+    if keyword_root_id == dependency_root_id:
+        updateKeywordParent(cur, keywordID, dependencyID)
+    else:
+        addRequires(cur, keywordID, dependencyID)
 
 
+con.commit()
 
-# For all dependencies, if the root of the dependency is different than root of its keyword,
-#   then add the dependency to the keywords Requires list
-
-
-
+# # Write sample FMM.txt file
+# rec_req_rows = getKeywordsData(cur)
+# row_buffer = [("FM Selection (GUI)","Function (GUI)","Selectable Options (GUI)",\
+#                "FM Selection","FM Selection Dependencies","Rule Type","Selection Min","Selection Max")]
+# for rec_req_row in rec_req_rows:
+#     tab = ""
+#     function = ""
+#     featureName = ""
+#     feature = ""
+#     dependencies = ""
+#     rule_type = ""
+#     min = None
+#     max = None
 #
-# allKeywordRows = getKeywordsData(cur)
-# for keywordRow in allKeywordRows:
-#     keywordID = keywordRow[0]
-#     keyword = keywordRow[4]
-#     requiresRows = getRequiresFromKeywordID(cur, keywordID)
-#     for requiresRow in requiresRows:
-#         print(keywordID, requiresRow)
-#     # if getKeywordRootIDfromID(keywordID) == getKeywordRootIDfromID(dependencyID):
-#     #     updateKeywordParent(keywordID, dependencyID)
-#     # else:
-#     #     addRequires(dependencyID, keywordID)
-# con.commit()
-
-
-
-
-
+#
 
 
 

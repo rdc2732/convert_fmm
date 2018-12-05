@@ -23,7 +23,10 @@ def create_tables(cursor):
         "keyword TEXT," \
         "keyword_name TEXT, " \
         "keyword_type TEXT CHECK( keyword_type IN ('MAN','OPT','ALT','OR')), " \
-    "UNIQUE (keyword) " \
+        "min INTEGER, " \
+        "max INTEGER, " \
+        "notes TEXT, "\
+        "UNIQUE (keyword) " \
         "FOREIGN KEY(parent_id) REFERENCES Keywords(id) " \
     ");", \
     "CREATE TABLE Requires (" \
@@ -50,8 +53,9 @@ def create_tables(cursor):
         "FOREIGN KEY(record_id) REFERENCES Records(id) " \
     ");" \
     ]
-    for query in sqllist:
-        cursor.execute(query)
+    cursor.execute(sqllist[0])
+    # for query in sqllist:
+    #     cursor.execute(query)
 
 
 ############ Records and Dependencies
@@ -131,14 +135,25 @@ def getDependents(cursor, keyword):
 
 ############ Keywords and Requires
 # Create
-def addKeyword(cursor, level, parent_id, root_id, keyword, keyword_name, keyword_type):
-    sql = "INSERT OR IGNORE INTO Keywords " \
-        "(level, parent_id, root_id, keyword, keyword_name, keyword_type) " \
-        "VALUES (?, ?, ?, ?, ?, ?);"
-    if keyword == 'odsDualChannel':
-        print(sql, keyword)
-    cursor.execute(sql, (level, parent_id, root_id, keyword, keyword_name, keyword_type))
-    return(cursor.lastrowid)
+# def addKeyword_old(cursor, level, parent_id, root_id, keyword, keyword_name, keyword_type):
+#     sql = "INSERT OR IGNORE INTO Keywords " \
+#         "(level, parent_id, root_id, keyword, keyword_name, keyword_type) " \
+#         "VALUES (?, ?, ?, ?, ?, ?);"
+#     if keyword == 'odsDualChannel':
+#         print(sql, keyword)
+#     cursor.execute(sql, (level, parent_id, root_id, keyword, keyword_name, keyword_type))
+#     return(cursor.lastrowid)
+
+def addKeyword(cursor, level, parent_id, root_id, keyword, keyword_name, keyword_type, min, max):
+    # Create new if necessary, return data for record
+    sql = "INSERT INTO Keywords " \
+        "(level, parent_id, root_id, keyword, keyword_name, keyword_type, min, max) " \
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?);"
+    cursor.execute(sql, (level, parent_id, root_id, keyword, keyword_name, keyword_type, min, max))
+    new_id = cursor.lastrowid
+    return(new_id)
+
+
 
 def addRequires(cursor, requires_id, keywords_id):
     sql = "INSERT INTO Requires " \
@@ -161,7 +176,11 @@ def getKeywordsData(cursor):
 def getKeywordID(cursor, keyWord):
     sql = "SELECT id FROM Keywords WHERE keyword = ?;"
     cursor.execute(sql, (keyWord,))
-    return(cursor.fetchone()[0])
+    result = cursor.fetchone()
+    if result == None:
+        return(None)
+    else:
+        return(result[0])
 
 def getKeywordRootID(cursor, keyWord):
     sql = "SELECT root_id FROM Keywords WHERE keyword = ?;"
@@ -182,7 +201,7 @@ def getKeywordRootIDfromID(cursor, keyWordID):
         return(result[0])
 
 def getKeywordDatafromID(cursor, keyWordID):
-    sql = "SELECT * FROM Keywords WHERE id = ?;"
+    sql = "SELECT level, parent_id, root_id, keyword, keyword_name, keyword_type FROM Keywords WHERE id = ?;"
     cursor.execute(sql, (keyWordID,))
     result = cursor.fetchone()
     if result == None:
