@@ -191,6 +191,15 @@ def getKeywordRootID(cursor, keyWord):
     else:
         return(result[0])
 
+def getKeywordParentIDLevel(cursor, keyWord):
+    sql = "SELECT parent_id, level FROM Keywords WHERE keyword = ?;"
+    cursor.execute(sql, (keyWord,))
+    result = cursor.fetchone()
+    if result == None:
+        return(None)
+    else:
+        return(result)
+
 def getKeywordRootIDfromID(cursor, keyWordID):
     sql = "SELECT root_id FROM Keywords WHERE id = ?;"
     cursor.execute(sql, (keyWordID,))
@@ -221,6 +230,14 @@ def updateRootID(cursor, root_id, keyword_id):
     sql = "UPDATE Keywords SET root_id = ? " \
         "WHERE id = ?;"
     cursor.execute(sql, (root_id, keyword_id))
+
+
+def updateParentIDLevel(cursor, keyword_id, new_parent_id, new_level):
+    # Update rootID of entry in keyword
+    sql = "UPDATE Keywords SET parent_id = ?, level = ? " \
+        "WHERE id = ?;"
+    cursor.execute(sql, (new_parent_id, new_level, keyword_id))
+
 
 def updateKeywordParent(cursor, keywordID,dependencyID):
     parentLevel = getKeywordDatafromID(cursor, dependencyID)[1]
