@@ -153,13 +153,15 @@ def read_fmm(file):
                     updateParentIDLevel(cur, feature_id, dependency_id, new_level)
         con.commit()
 
+# Write new FMM.txt file
 
-def write_fmm(file, row_data):
-    with open(file) as csv_file:
-        csv_writer = csv.writer(csv_file, delimter='\t')
-        csv_writer.writerows(row_data)
+def write_fmm(file):
+    csv.register_dialect('myDialect', delimiter='\t', lineterminator = '\n')
+    keyword_rows = getKeywordRelatedData(cur)
+    with open(file, 'w') as csv_file:
+        csv_writer = csv.writer(csv_file, dialect='myDialect')
+        csv_writer.writerows(keyword_rows)
 
-    csv_writer.close()
 
 
 ##### main program #####
@@ -173,3 +175,7 @@ create_tables(cur)
 # Load database with records from FMM.txt
 read_fmm(csvfile)
 
+write_fmm(csvfileout)
+
+# sqlite> .once -x
+# sqlite> select distinct k1.keyword_name as tab, k2.keyword_name as function, k3.keyword_name as feature_name, k3.keyword as feature from keywords as k1 join keywords as k2 join keywords as k3 where k3.parent_id = k2.id and k2.parent_id = k1.id;

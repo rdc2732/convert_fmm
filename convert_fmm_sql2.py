@@ -153,8 +153,6 @@ def addKeyword(cursor, level, parent_id, root_id, keyword, keyword_name, keyword
     new_id = cursor.lastrowid
     return(new_id)
 
-
-
 def addRequires(cursor, requires_id, keywords_id):
     sql = "INSERT INTO Requires " \
         "(requires_id, keywords_id) " \
@@ -223,6 +221,13 @@ def getRequiresFromKeywordID(cursor, keyWordID):
     cursor.execute(sql, (keyWordID,))
     return(cursor.fetchall())
 
+def getKeywordRelatedData(cursor):
+    sql = "SELECT k1.level as level, k1.keyword as keyword, k1.keyword_name as keyword_name, "\
+            "k1.keyword_type as keyword_type, k1.min as min, k1.max as max from keywords as k1 "\
+            "LEFT OUTER JOIN keywords as k2 WHERE k1.id = k2.parent_id GROUP BY k1.level, k1.keyword "\
+            "ORDER BY k1.level, k1.keyword;"
+    cursor.execute(sql)
+    return(cursor.fetchall())
 
 # Update
 def updateRootID(cursor, root_id, keyword_id):
