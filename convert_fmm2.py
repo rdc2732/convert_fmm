@@ -156,11 +156,41 @@ def read_fmm(file):
 # Write new FMM.txt file
 
 def write_fmm(file):
+    output_rows = []
     csv.register_dialect('myDialect', delimiter='\t', lineterminator = '\n')
-    keyword_rows = getKeywordRelatedData(cur)
     with open(file, 'w') as csv_file:
+        tab_rows = getRootKeywordsData(cur)
+        for tab_row in tab_rows:
+            tab_id = tab_row[0]
+            tab_name = tab_row[5]
+            function_rows = getKeywordChildrenfromID(cur, tab_id)
+            for function_row in function_rows:
+                function_name = function_row[4]
+                function_keyword = function_row[3]
+                function_id = getKeywordID(cur, function_keyword)
+                feature_rows = getKeywordChildrenfromID(cur, function_id)
+                for feature_row in feature_rows:
+                    feature_name = feature_row[4]
+                    feature = feature_row[3]
+                    feature_type = feature_row[5]
+                    feature_min = feature_row[6]
+                    feature_max = feature_row[7]
+                    output_rows.append([tab_name, function_name, feature_name, feature,\
+                            feature_type, feature_min, feature_max])
         csv_writer = csv.writer(csv_file, dialect='myDialect')
-        csv_writer.writerows(keyword_rows)
+        csv_writer.writerows(output_rows)
+
+
+
+# def write_fmm(file):
+#     csv.register_dialect('myDialect', delimiter='\t', lineterminator = '\n')
+#     keyword_rows = getKeywordRelatedData(cur)
+#     with open(file, 'w') as csv_file:
+#         csv_writer = csv.writer(csv_file, dialect='myDialect')
+#         csv_writer.writerows(keyword_rows)
+
+
+
 
 
 

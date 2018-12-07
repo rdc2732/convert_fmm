@@ -171,6 +171,11 @@ def getKeywordsData(cursor):
     cursor.execute(sql)
     return(cursor.fetchall())
 
+def getRootKeywordsData(cursor):
+    sql = "SELECT * FROM Keywords where level = 0;"
+    cursor.execute(sql)
+    return(cursor.fetchall())
+
 def getKeywordID(cursor, keyWord):
     sql = "SELECT id FROM Keywords WHERE keyword = ?;"
     cursor.execute(sql, (keyWord,))
@@ -216,17 +221,27 @@ def getKeywordDatafromID(cursor, keyWordID):
     else:
         return(result)
 
+def getKeywordChildrenfromID(cursor, keyWordID):
+    sql = "SELECT level, parent_id, root_id, keyword, keyword_name, keyword_type, min, max FROM Keywords WHERE parent_id = ?;"
+    cursor.execute(sql, (keyWordID,))
+    result = cursor.fetchall()
+    if result == None:
+        return (None)
+    else:
+        return (result)
+
+
 def getRequiresFromKeywordID(cursor, keyWordID):
     sql = "SELECT * FROM Requires WHERE keywords_id = ?;"
     cursor.execute(sql, (keyWordID,))
     return(cursor.fetchall())
 
-def getKeywordRelatedData(cursor):
+def getKeywordRelatedData(cursor, keyWordID):
     sql = "SELECT k1.level as level, k1.keyword as keyword, k1.keyword_name as keyword_name, "\
             "k1.keyword_type as keyword_type, k1.min as min, k1.max as max from keywords as k1 "\
-            "LEFT OUTER JOIN keywords as k2 WHERE k1.id = k2.parent_id GROUP BY k1.level, k1.keyword "\
-            "ORDER BY k1.level, k1.keyword;"
-    cursor.execute(sql)
+            "LEFT OUTER JOIN keywords as k2 WHERE k1.id = k2.parent_id and k1.parent_id = ? "\
+            "GROUP BY k1.level, k1.keyword ORDER BY k1.level, k1.keyword;"
+    cursor.execute(sql, (keyWordID,))
     return(cursor.fetchall())
 
 # Update
