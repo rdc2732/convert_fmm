@@ -15,6 +15,15 @@ sqldbfile = 'FMM1.db'
 csvfile = 'FMM.txt'     # Using csv reader for tab separated file
 csvfileout = 'FMMout.txt' # Using csv writer for tab separated file
 
+choices = {'MAN': 'Selection', 'Selection': 'MAN', \
+           'OPT': 'Option', 'Option' : 'OPT', \
+           'ALT': 'Choice', 'Choice':'ALT' }
+
+def get_option(old_option):
+    new_option = choices[old_option]
+    return(new_option)
+
+
 ##### Function definitions
 # Uncamelcase words, needed to standardize the input data that does not follow rules
 # Returns string with parts separated by '_'
@@ -95,12 +104,7 @@ def read_fmm(file):
                 feature_name = row[2]
                 feature = cleanup(row[3])
                 rule_type = row[5]
-                if rule_type == 'Selection':
-                    rule_type = 'OPT'
-                if rule_type == 'Choice':
-                    rule_type = 'ALT'
-                if rule_type == 'Option':
-                    rule_type = 'OR'
+                rule_type = get_option(row[5])
                 min = row[6]
                 max = row[7]
                 feature_id = getKeywordID(cur, feature)
@@ -110,6 +114,8 @@ def read_fmm(file):
 
                 dependencies = row[4].split(';')  # semi-colon separated list of dependencies in row[4]
                 depDict.update({feature: dependencies})
+            else:
+                header_row = row
             line_count += 1
         print(f'Processed {line_count} lines.')
 
@@ -156,7 +162,11 @@ def read_fmm(file):
 # Write new FMM.txt file
 
 def write_fmm(file):
+    header_row = ["FM Selection (GUI)", "Function (GUI)", "Selectable Options (GUI)", \
+            "FM Selection", "FM Selection Dependencies", "Rule Type", "Selection Min", \
+                  "Selection Max","Description"]
     output_rows = []
+    # output_rows.append(header_row)
     csv.register_dialect('myDialect', delimiter='\t', lineterminator = '\n')
     with open(file, 'w') as csv_file:
         tab_rows = getRootKeywordsData(cur)
@@ -170,17 +180,17 @@ def write_fmm(file):
                 function_id = getKeywordID(cur, function_keyword)
                 feature_rows = getKeywordChildrenfromID(cur, function_id)
                 for feature_row in feature_rows:
-                    feature_name = feature_row[4]
                     feature = feature_row[3]
-                    feature_type = feature_row[5]
+                    feature_name = feature_row[4]
+                    feature_dependencies = None
+                    feature_type = get_option(feature_row[5])
                     feature_min = feature_row[6]
                     feature_max = feature_row[7]
-                    output_rows.append([tab_name, function_name, feature_name, feature,\
-                            feature_type, feature_min, feature_max])
+                    feature_description = "No Description"
+                    output_rows.append([tab_name, function_name, feature_name, feature, feature_dependencies, \
+                            feature_type, feature_min, feature_max, feature_description])
         csv_writer = csv.writer(csv_file, dialect='myDialect')
         csv_writer.writerows(output_rows)
-
-
 
 # def write_fmm(file):
 #     csv.register_dialect('myDialect', delimiter='\t', lineterminator = '\n')
@@ -188,11 +198,6 @@ def write_fmm(file):
 #     with open(file, 'w') as csv_file:
 #         csv_writer = csv.writer(csv_file, dialect='myDialect')
 #         csv_writer.writerows(keyword_rows)
-
-
-
-
-
 
 ##### main program #####
 
@@ -206,6 +211,3 @@ create_tables(cur)
 read_fmm(csvfile)
 
 write_fmm(csvfileout)
-
-# sqlite> .once -x
-# sqlite> select distinct k1.keyword_name as tab, k2.keyword_name as function, k3.keyword_name as feature_name, k3.keyword as feature from keywords as k1 join keywords as k2 join keywords as k3 where k3.parent_id = k2.id and k2.parent_id = k1.id;

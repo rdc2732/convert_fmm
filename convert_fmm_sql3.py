@@ -17,22 +17,20 @@ def create_tables(cursor):
     sqllist =  [ \
     "CREATE TABLE Keywords (" \
         "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
-        "level INTEGER, " \
         "parent_id INTEGER, " \
-        "root_id INTEGER, " \
         "keyword TEXT," \
         "keyword_name TEXT, " \
         "keyword_type TEXT CHECK( keyword_type IN ('MAN','OPT','ALT','OR')), " \
-        "min INTEGER, " \
-        "max INTEGER, " \
+        "tab TEXT, "\
+        "function TEXT, "\
         "notes TEXT, "\
         "UNIQUE (keyword) " \
         "FOREIGN KEY(parent_id) REFERENCES Keywords(id) " \
     ");", \
-    "CREATE TABLE Requires (" \
-        "requires_id INTEGER, " \
-        "keywords_id INTEGER, " \
-        "FOREIGN KEY(keywords_id) REFERENCES Keywords(id) " \
+    "CREATE TABLE Dependencies (" \
+        "dependency TEXT, " \
+        "record_id INTEGER, " \
+        "FOREIGN KEY(record_id) REFERENCES Records(id) " \
     ");", \
     "CREATE TABLE Records (" \
         "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
@@ -47,15 +45,10 @@ def create_tables(cursor):
         "max INTEGER, " \
         "notes TEXT" \
     ");", \
-    "CREATE TABLE Dependencies (" \
-        "dependency TEXT, " \
-        "record_id INTEGER, " \
-        "FOREIGN KEY(record_id) REFERENCES Records(id) " \
-    ");" \
     ]
-    cursor.execute(sqllist[0])
-    # for query in sqllist:
-    #     cursor.execute(query)
+    for query in sqllist:
+        print(query)
+        cursor.execute(query)
 
 
 ############ Records and Dependencies
