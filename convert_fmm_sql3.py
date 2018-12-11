@@ -4,51 +4,59 @@
 
 ###### Database Setup
 def drop_tables(cursor):
-    sqllist = [ \
-        "DROP TABLE IF EXISTS Keywords", \
-        "DROP TABLE IF EXISTS Requires", \
-        "DROP TABLE IF EXISTS Records", \
-        "DROP TABLE IF EXISTS Dependencies" \
+    sqllist = [
+        "DROP TABLE IF EXISTS Keywords",
+        "DROP TABLE IF EXISTS Relations",
+        "DROP TABLE IF EXISTS Records",
+        "DROP TABLE IF EXISTS Dependencies"
         ]
     for query in sqllist:
         cursor.execute(query)
 
 def create_tables(cursor):
-    sqllist =  [ \
-    "CREATE TABLE Keywords (" \
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
-        "parent_id INTEGER, " \
-        "keyword TEXT," \
-        "keyword_name TEXT, " \
-        "keyword_type TEXT CHECK( keyword_type IN ('MAN','OPT','ALT','OR')), " \
-        "tab TEXT, "\
-        "function TEXT, "\
-        "notes TEXT, "\
-        "UNIQUE (keyword) " \
-        "FOREIGN KEY(parent_id) REFERENCES Keywords(id) " \
-    ");", \
-    "CREATE TABLE Dependencies (" \
-        "dependency TEXT, " \
-        "record_id INTEGER, " \
-        "FOREIGN KEY(record_id) REFERENCES Records(id) " \
-    ");", \
-    "CREATE TABLE Records (" \
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
-        "processed BOOLEAN, " \
-        "tab TEXT, " \
-        "function TEXT, " \
-        "keyword_name TEXT, " \
-        "keyword TEXT, " \
-        "dependencies TEXT, " \
-        "rule_type TEXT, " \
-        "min INTEGER, " \
-        "max INTEGER, " \
-        "notes TEXT" \
-    ");", \
+    sqllist =  [
+    "CREATE TABLE Records (" 
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, " 
+        "processed BOOLEAN, " 
+        "keyword_name TEXT, " 
+        "keyword TEXT, " 
+        "rule_type TEXT, " 
+        "tab TEXT, " 
+        "function TEXT, " 
+        "min INTEGER, " 
+        "max INTEGER, " 
+        "notes TEXT, "
+        "dependencies TEXT " 
+        ");",
+    "CREATE TABLE Dependencies (" 
+        "dependency TEXT, " 
+        "record_id INTEGER, " 
+        "FOREIGN KEY(record_id) REFERENCES Records(id) " 
+        ");",
+    "CREATE TABLE Keywords (" 
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, " 
+        "keyword_name TEXT, " 
+        "keyword TEXT, " 
+        "rule_type TEXT, " 
+        "tab TEXT, " 
+        "function TEXT, " 
+        "min INTEGER, " 
+        "max INTEGER, " 
+        "notes TEXT " 
+        ");",
+    "CREATE TABLE Relations (" 
+        "enabler_id INTEGER, " 
+        "dependent_id INTEGER, " 
+        "FOREIGN KEY(enabler_id) REFERENCES Records(id), " 
+        "FOREIGN KEY(dependent_id) REFERENCES Records(id) " 
+        ");"
     ]
     for query in sqllist:
-        print(query)
         cursor.execute(query)
+
+
+
+
 
 
 ############ Records and Dependencies
@@ -57,7 +65,7 @@ def addRecord(cursor, record_data):
     sql = "INSERT OR IGNORE INTO Records " \
         "(tab, function, keyword_name, keyword, dependencies, " \
         "rule_type, min, max, notes) " \
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'no text');"
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, '');"
     cursor.execute(sql, (record_data))
     return(cursor.lastrowid)
 
@@ -86,6 +94,15 @@ def getAllRecordsAndDependencies(cursor):
         "WHERE dependencies.record_id = records.id;"
     cursor.execute(sql)
     return(cursor.fetchall())
+
+
+def getAllDependencies(cursor):
+    # Return list of records and dependencies
+    sql = "SELECT * FROM dependencies;"
+    cursor.execute(sql)
+    return(cursor.fetchall())
+
+
 
 def getTabs(cursor):
     sql = "SELECT DISTINCT tab FROM records ORDER BY tab;"
@@ -137,14 +154,31 @@ def getDependents(cursor, keyword):
 #     cursor.execute(sql, (level, parent_id, root_id, keyword, keyword_name, keyword_type))
 #     return(cursor.lastrowid)
 
-def addKeyword(cursor, level, parent_id, root_id, keyword, keyword_name, keyword_type, min, max):
+def addKeyword(cursor, keyword_data):
     # Create new if necessary, return data for record
     sql = "INSERT INTO Keywords " \
-        "(level, parent_id, root_id, keyword, keyword_name, keyword_type, min, max) " \
+        "(keyword_name, keyword, rule_type, tab, function, min, max, notes) " \
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?);"
-    cursor.execute(sql, (level, parent_id, root_id, keyword, keyword_name, keyword_type, min, max))
+    cursor.execute(sql, (keyword_data))
     new_id = cursor.lastrowid
     return(new_id)
+
+
+
+
+def addRelation(cursor, enabler_id, dependent_id):
+    sql = "INSERT INTO Relations "\
+        "(enabler_id, dependent_id) "\
+        "VALUES (?, ?);"
+    cursor.execute(sql, (enabler_id, dependent_id))
+
+
+def getAllRelations(cursor):
+    sql = "SELECT * FROM Relations;"
+    cursor.execute(sql)
+    return(cursor.fetchall())
+
+
 
 def addRequires(cursor, requires_id, keywords_id):
     sql = "INSERT INTO Requires " \

@@ -67,8 +67,6 @@ def read_fmm(file):
         for row in csv_reader:
             if line_count > 0:
                 row[3] = cleanup(row[3])
-                if row[3] == 'rightEngineID':
-                    print(row)
                 feature_id = addRecord(cur, row)
                 dependencies = row[4].split(';')  # semi-colon separated list of dependencies in row[4]
                 for dependency in dependencies:
@@ -76,6 +74,67 @@ def read_fmm(file):
             line_count += 1
         print(f'Processed {line_count} lines.')
         con.commit()
+
+def create_keywords():
+    all_records = getAllRecords(cur)
+    for record in all_records:
+        keyword_data = record[2:10]
+        keyword_id = addKeyword(cur, keyword_data)
+    con.commit()
+
+def create_relations():
+    all_dependencies = getAllDependencies(cur)
+    for dependency in all_dependencies:
+        enabler = dependency[0]
+        dependent_id = dependency[1]
+        enabler_id = getKeywordID(cur, enabler)
+        if enabler_id == None:
+            print("Enabler Keyword Not Found: ", enabler)
+        addRelation(cur, enabler_id, dependent_id)
+    con.commit()
+
+
+##### main program #####
+
+# Set up sqlite database
+con = sqlite3.connect(sqldbfile)
+cur = con.cursor()
+drop_tables(cur)
+create_tables(cur)
+
+# Load database with records from FMM.txt
+read_fmm(csvfile) # Reads text file and creates records and dependencies tables.
+create_keywords() # Initialize keywords table
+create_relations() # Link keywords dependents to enablers
+
+
+
+
+
+# write_fmm(csvfileout)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # # 'FM Selection (GUI)', 'Function (GUI)', 'Selectable Options (GUI)', 'FM Selection',
 # #     'FM Selection Dependencies', 'Rule Type', 'Selection Min', 'Selection Max'
@@ -218,16 +277,3 @@ def read_fmm(file):
 #     with open(file, 'w') as csv_file:
 #         csv_writer = csv.writer(csv_file, dialect='myDialect')
 #         csv_writer.writerows(keyword_rows)
-
-##### main program #####
-
-# Set up sqlite database
-con = sqlite3.connect(sqldbfile)
-cur = con.cursor()
-drop_tables(cur)
-create_tables(cur)
-
-# Load database with records from FMM.txt
-read_fmm(csvfile)
-
-# write_fmm(csvfileout)
