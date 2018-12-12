@@ -57,7 +57,6 @@ def removeSpecialChars(input_text):
 def cleanup(input_text):
     return(camelCase(removeSpecialChars(input_text)))
 
-
 def read_fmm(file):
     # CSV records; rec[0] = FM Keyword; rec[1] = list of FM Dependencies
     # Modify to clean up keywords if needed.
@@ -67,12 +66,27 @@ def read_fmm(file):
         for row in csv_reader:
             if line_count > 0:
                 row[3] = cleanup(row[3])
+                row[5] = choices[row[5]]
                 feature_id = addRecord(cur, row)
                 dependencies = row[4].split(';')  # semi-colon separated list of dependencies in row[4]
                 for dependency in dependencies:
                     addDependency(cur, cleanup(dependency), feature_id)
             line_count += 1
         print(f'Processed {line_count} lines.')
+        con.commit()
+
+def process_OR_keywords():
+    all_or_records = getAllOrRecords(cur)
+    for or_record in all_or_records:
+        or_record_id = or_record[0]
+        keyword_data = or_record[2:10]
+        tab = keyword_data[3]
+        function = keyword_data[4]
+        keyword = keyword_data[1]
+        keyword_id = addKeyword(cur, keyword_data)
+        con.commit()
+        # Update records to show processed and set dependencies to all be = to first record;
+        update_or_records(cur, or_record_id, tab, function, keyword)
         con.commit()
 
 def create_keywords():
@@ -89,9 +103,19 @@ def create_relations():
         dependent_id = dependency[1]
         enabler_id = getKeywordID(cur, enabler)
         if enabler_id == None:
-            print("Enabler Keyword Not Found: ", enabler)
+            keyword_name = enabler
+            keyword = enabler
+            rule_type = 'MAN'
+            tab = 'Other'
+            function = 'Other'
+            min = 1
+            max = 1
+            notes = 'Generated from dependencies in FMM'
+            enabler_data = (keyword_name, keyword, rule_type, tab, function, min, max, notes)
+            enabler_id = addKeyword(cur, enabler_data)
         addRelation(cur, enabler_id, dependent_id)
     con.commit()
+
 
 
 ##### main program #####
@@ -104,8 +128,9 @@ create_tables(cur)
 
 # Load database with records from FMM.txt
 read_fmm(csvfile) # Reads text file and creates records and dependencies tables.
-create_keywords() # Initialize keywords table
-create_relations() # Link keywords dependents to enablers
+process_OR_keywords() # Deal with all OR keywords conditions
+# create_keywords() # Initialize keywords table
+# create_relations() # Link keywords dependents to enablers
 
 
 

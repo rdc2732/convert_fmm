@@ -62,7 +62,7 @@ def create_tables(cursor):
 ############ Records and Dependencies
 # Create
 def addRecord(cursor, record_data):
-    sql = "INSERT OR IGNORE INTO Records " \
+    sql = "INSERT INTO Records " \
         "(tab, function, keyword_name, keyword, dependencies, " \
         "rule_type, min, max, notes) " \
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, '');"
@@ -88,6 +88,21 @@ def getAllRecords(cursor):
     cursor.execute(sql)
     return(cursor.fetchall())
 
+def getAllOrRecords(cursor):
+    # Retun list of OR keywords that meet OR condition
+    sql =  "SELECT * from records "\
+        "GROUP BY tab, function, keyword HAVING count(tab) > 1 "\
+        "ORDER BY tab, function, keyword;"
+    cursor.execute(sql)
+    return(cursor.fetchall())
+
+def getAllOrDependencies(cursor, keyword):
+    sql = "SELECT * FROM records, dependencies "\
+        "WHERE dependencies.record_id = records.id "\
+        "and keyword = ?;"
+    cursor.execute(sql, (keyword,))
+    return(cursor.fetchall())
+
 def getAllRecordsAndDependencies(cursor):
     # Return list of records and dependencies
     sql = "SELECT * FROM records, dependencies " \
@@ -95,14 +110,11 @@ def getAllRecordsAndDependencies(cursor):
     cursor.execute(sql)
     return(cursor.fetchall())
 
-
 def getAllDependencies(cursor):
     # Return list of records and dependencies
     sql = "SELECT * FROM dependencies;"
     cursor.execute(sql)
     return(cursor.fetchall())
-
-
 
 def getTabs(cursor):
     sql = "SELECT DISTINCT tab FROM records ORDER BY tab;"
@@ -132,14 +144,24 @@ def getDependents(cursor, keyword):
     cursor.execute(sql, (keyword,))
     return(cursor.fetchall())
 
-# def getKeywordDependencyPairs():
-#     sql = "select keywords.id as keyid, dependencies.id as depid " \
-#         "from keywords, dependencies " \
-#         "where dependencies.record_id = keywords.id; "
-#     cursor.execute(sql)
-#     return(cursor.fetchall())
+def getKeywordDependencyPairs():
+    sql = "select keywords.id as keyid, dependencies.id as depid "
+    "from keywords, dependencies "
+    "where dependencies.record_id = keywords.id; "
+    cursor.execute(sql)
+    return(cursor.fetchall())
 
 # Update
+def update_or_records(cursor, record_id, tab, function, keyword):
+    # Update records to set as processed and set dependencies to record_id
+    sql = "update records set processed = 1, rule_type = 'OR' where (tab, function, keyword) = (?,?,?);"
+    cursor.execute(sql, (tab, function, keyword,))
+
+    # Update dependencies to point to the main row for the OR group
+    sql = "update dependencies set record_id = ? where record_id in "\
+            "(select id from records where (tab, function, keyword) = "\
+            "(select tab, function, keyword from records where id = ? ));"
+    cursor.execute(sql, (record_id, record_id,))
 
 
 
@@ -156,14 +178,12 @@ def getDependents(cursor, keyword):
 
 def addKeyword(cursor, keyword_data):
     # Create new if necessary, return data for record
-    sql = "INSERT INTO Keywords " \
-        "(keyword_name, keyword, rule_type, tab, function, min, max, notes) " \
+    sql = "INSERT INTO Keywords "\
+        "(keyword_name, keyword, rule_type, tab, function, min, max, notes) "\
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?);"
     cursor.execute(sql, (keyword_data))
     new_id = cursor.lastrowid
     return(new_id)
-
-
 
 
 def addRelation(cursor, enabler_id, dependent_id):
