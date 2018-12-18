@@ -165,8 +165,6 @@ def write_fmm(file):
     header_row = ["FM Selection (GUI)", "Function (GUI)", "Selectable Options (GUI)", \
             "FM Selection", "FM Selection Dependencies", "Rule Type", "Selection Min", \
                   "Selection Max","Description"]
-    output_rows = []
-    # output_rows.append(header_row)
     csv.register_dialect('myDialect', delimiter='\t', lineterminator = '\n')
     with open(file, 'w') as csv_file:
         tab_rows = getRootKeywordsData(cur)

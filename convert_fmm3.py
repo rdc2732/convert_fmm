@@ -9,7 +9,7 @@
 import csv
 import re
 
-csvfile = 'FMM.txt'     # Using csv reader for tab separated file
+csvfile = 'FMM_test.txt'     # Using csv reader for tab separated file
 csvfileout = 'FMMout3.txt' # Using csv writer for tab separated file
 
 ##### Function definitions
@@ -75,6 +75,17 @@ def read_fmm(file):
     return record_list
 
 
+def write_fmm(file, data):
+    header_row = [("FM Selection (GUI)", "Function (GUI)", "Selectable Options (GUI)", \
+            "FM Selection", "FM Selection Dependencies", "Rule Type", "Selection Min", \
+                  "Selection Max","Description")]
+    csv.register_dialect('myDialect', delimiter='\t', lineterminator = '\n')
+    with open(file, 'w') as csv_file:
+        csv_writer = csv.writer(csv_file, dialect='myDialect')
+        csv_writer.writerows(header_row)
+        csv_writer.writerows(data)
+
+
 def get_opt_rows(records):
     # Returns a dictionary of options {(tab, function, keyword) : [records]}
     lookup_dict = {}
@@ -94,7 +105,7 @@ def get_opt_rows(records):
 
 
 def get_keywords(records):
-    # Returns a dictionary of options {(keyword) : [records]}
+    # Returns a dictionary of options {(keyword) : [records]} if not in option_dict
     lookup_dict = {}
     for index, row in enumerate(records):
         if index > 0:
@@ -111,9 +122,10 @@ def get_keywords(records):
 # Load database with records from FMM.txt
 old_fmm_records = read_fmm(csvfile) # Reads text file and creates records and dependencies tables.
 new_fmm_records = []
-keyword_dict = get_keywords(old_fmm_records)
 option_dict = get_opt_rows(old_fmm_records)
+keyword_dict = get_keywords(old_fmm_records)
 
+print("Length of new_fmm_records = ", len(new_fmm_records))
 
 for option in option_dict: # list of all {option tuples: [list of records])
     option_list = option_dict[option]
@@ -127,28 +139,31 @@ for option in option_dict: # list of all {option tuples: [list of records])
         for option_rec_id in option_list: # Process each of the OPT records to get dependency info
             option_record = [*old_fmm_records[option_rec_id]] # unpack original option record
             option_keyword = option_record[3]
-            option_dependency = option_record[4]
-            option_dependency_id = keyword_dict[option_dependency][0]
-
-            dependency_record = [*old_fmm_records[option_dependency_id]] # unpack original dependency record
-            dependency_keyword = dependency_record[3]
-            dependency_dependency = dependency_record[4]
-            dependency_record[4] = option_keyword # update record for new dependency
-            dependency_record[5] = 'OPT' # ensure option type record for new dependency
-            if dependency_dependency not in new_option_dependency_list:
-                new_option_dependency_list.append(dependency_dependency)
-            new_fmm_records.append(dependency_record) # save new version of record
+            option_dependency_list = option_record[4].split(';')
+            for option_dependency in option_dependency_list:
+                option_dependency_id = keyword_dict[option_dependency][0]
+                dependency_record = [*old_fmm_records[option_dependency_id]] # unpack original dependency record
+                dependency_keyword = dependency_record[3]
+                dependency_dependency = dependency_record[4]
+                dependency_record[4] = option_keyword # update record for new dependency
+                dependency_record[5] = 'OPT' # ensure option type record for new dependency
+                if dependency_dependency not in new_option_dependency_list:
+                    new_option_dependency_list.append(dependency_dependency)
+                new_fmm_records.append(dependency_record) # save new version of record
         new_option_record[5] = 'OPT' # ensure option type record for new option record
         new_option_record[4] = ';'.join(new_option_dependency_list) # update option with new dependency list
-
         new_fmm_records.append(new_option_record)  # save new version of record
-        break
 
 
-for record in new_fmm_records:
-    print(record)
-#
 
+print("Length of new_fmm_records = ", len(new_fmm_records))
 
-# write_fmm(csvfileout)
+for keyword in keyword_dict: # list of all keywords
+    keyword_list = keyword_dict[keyword]
+    if len(keyword_list) == 1: # keywords with only one record.  Assume all others were processed as OPTs
+        new_keyword_rec_id = keyword_list[0] # First record in list (of only one item)
+        new_fmm_records.append(old_fmm_records[new_keyword_rec_id])  # save new version of record
 
+print("Length of new_fmm_records = ", len(new_fmm_records))
+
+write_fmm(csvfileout, new_fmm_records)
