@@ -9,7 +9,7 @@
 import csv
 import re
 
-csvfile = 'FMM_test.txt'     # Using csv reader for tab separated file
+csvfile = 'FMM.txt'     # Using csv reader for tab separated file
 csvfileout = 'FMMout3.txt' # Using csv writer for tab separated file
 
 ##### Function definitions
@@ -124,9 +124,11 @@ old_fmm_records = read_fmm(csvfile) # Reads text file and creates records and de
 new_fmm_records = []
 option_dict = get_opt_rows(old_fmm_records)
 keyword_dict = get_keywords(old_fmm_records)
+dependency_dict = {} # (keyword (from dependency): (tab, function, keyword)}
 
 print("Length of new_fmm_records = ", len(new_fmm_records))
 
+# Process OPT records (where there are multiple records of (tab, function, keyword) tuples
 for option in option_dict: # list of all {option tuples: [list of records])
     option_list = option_dict[option]
     if len(option_list) > 1: # options with more than one record
@@ -153,16 +155,51 @@ for option in option_dict: # list of all {option tuples: [list of records])
         new_option_record[5] = 'OPT' # ensure option type record for new option record
         new_option_record[4] = ';'.join(new_option_dependency_list) # update option with new dependency list
         new_fmm_records.append(new_option_record)  # save new version of record
-
-
-
 print("Length of new_fmm_records = ", len(new_fmm_records))
 
+# Process all non-OPT records
 for keyword in keyword_dict: # list of all keywords
     keyword_list = keyword_dict[keyword]
     if len(keyword_list) == 1: # keywords with only one record.  Assume all others were processed as OPTs
         new_keyword_rec_id = keyword_list[0] # First record in list (of only one item)
-        new_fmm_records.append(old_fmm_records[new_keyword_rec_id])  # save new version of record
+
+        new_keyword_record = [*old_fmm_records[new_keyword_rec_id]] # unpack into new record
+        tab = new_keyword_record[0]
+        function = new_keyword_record[1]
+        keyword = new_keyword_record[3]
+        option_index = (tab, function, keyword)
+        if len(option_dict[option_index]):
+            new_fmm_records.append(old_fmm_records[new_keyword_rec_id])  # save new version of record
+        else:
+            print(option_index, len(option_dict[option_index]))
+print("Length of new_fmm_records = ", len(new_fmm_records))
+
+# Create psuedo keywords to represent common tabs and functions
+new_keywords = []
+for keyword in keyword_dict:  # list of all keywords
+    keyword_list = keyword_dict[keyword]
+    keyword_rec_id = keyword_list[0]  # First record in list (of only one item)
+    keyword_record = [*old_fmm_records[keyword_rec_id]] # unpack into new record
+    keyword_dependency_list = keyword_record[4].split(';')
+    for dependency in keyword_dependency_list:
+        if dependency not in keyword_dict and dependency not in new_keywords:
+            new_keywords.append(dependency)
+
+for new_keyword in new_keywords:
+    if new_keyword not in keyword_dict and new_keyword not in ['na']:
+        tab = 'Common Features'     # 0
+        function = new_keyword      # 1
+        if function.find('common-') == 0:
+            function = function[len('common-'):]
+        keyword_name = function     # 2
+        keyword = new_keyword       # 3
+        dependency = 'na'           # 4
+        rule_type = 'MAN'           # 5
+        min = 1                     # 6
+        max = 1                     # 7
+        description = ''            # 8
+        new_data = (tab, function, keyword_name, keyword, dependency, rule_type, min, max, description)
+        new_fmm_records.append(new_data)
 
 print("Length of new_fmm_records = ", len(new_fmm_records))
 

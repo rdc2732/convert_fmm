@@ -1,0 +1,10 @@
+FM Selection (GUI)	Function (GUI)	Selectable Options (GUI)	FM Selection	FM Selection Dependencies	Rule Type	Selection Min	Selection Max
+Drivers/Torque Motors	High Side and Low Side (combined) Drivers	High Side and Low Side (combined) Drivers	hslsDriver	atsPermit	Selection	1	1
+Drivers/Torque Motors	High Side and Low Side (combined) Drivers	High Side and Low Side (combined) Drivers	hslsDriver	ignRelay	Selection	1	1
+Drivers/Torque Motors	High Side and Low Side (combined) Drivers	High Side and Low Side (combined) Drivers	hslsDriver	loadInhibit	Selection	1	1
+Drivers/Torque Motors	High Side and Low Side (combined) Drivers	High Side and Low Side (combined) Drivers	hslsDriver	modeTransfer	Selection	1	1
+Drivers/Torque Motors	High Side and Low Side Drivers (combined)	Air Turbine Starter Permit Relay Installed	atsPermit	fuelCooled	Option	0	10
+Drivers/Torque Motors	High Side and Low Side Drivers (combined)	Ignition Relay Installed	ignRelay	fuelCooled	Option	0	10
+Drivers/Torque Motors	High Side and Low Side Drivers (combined)	Load Inhibit Relay Installed	loadInhibit	fuelCooled	Option	0	10
+Drivers/Torque Motors	High Side and Low Side Drivers (combined)	Mode Transfer Solenoid Installed	modeTransfer	fuelCooled	Option	0	10
+Installation	ECU Enclosure Type	Fuel Cooled	fuelCooled	n/a	Selection	1	1
