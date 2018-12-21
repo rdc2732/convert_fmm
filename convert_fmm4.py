@@ -10,7 +10,7 @@ import csv
 import re
 
 csvfile = 'FMM.txt'     # Using csv reader for tab separated file
-csvfileout = 'FMMout3.txt' # Using csv writer for tab separated file
+csvfileout = 'FMMout4.txt' # Using csv writer for tab separated file
 
 ##### Function definitions
 # Uncamelcase words, needed to standardize the input data that does not follow rules
